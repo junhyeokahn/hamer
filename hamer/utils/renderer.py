@@ -421,3 +421,128 @@ class Renderer:
             if scene.has_node(node):
                 continue
             scene.add_node(node)
+
+    def render_rgba_multiple_diff(
+            self,
+            vertices: List[np.array],
+            cam_t: List[np.array],
+            rot_axis=[1,0,0],
+            rot_angle=0,
+            mesh_base_color=(1.0, 1.0, 0.9),
+            scene_bg_color=(0,0,0),
+            render_res=[256, 256],
+            focal_length=None,
+            is_right=None,
+        ):
+        red_color = (1.0, 0.5, 0.5)  
+        green_color = (0.5, 1.0, 0.5)  
+        renderer = pyrender.OffscreenRenderer(viewport_width=render_res[0],
+                                              viewport_height=render_res[1],
+                                              point_size=1.0)
+        # material = pyrender.MetallicRoughnessMaterial(
+        #     metallicFactor=0.0,
+        #     alphaMode='OPAQUE',
+        #     baseColorFactor=(*mesh_base_color, 1.0))
+
+        if is_right is None:
+            is_right = [1 for _ in range(len(vertices))]
+
+        # mesh_list = [pyrender.Mesh.from_trimesh(self.vertices_to_trimesh(vvv, ttt.copy(), mesh_base_color, rot_axis, rot_angle, is_right=sss)) for vvv,ttt,sss in zip(vertices, cam_t, is_right)]
+        mesh_list = [pyrender.Mesh.from_trimesh(
+                self.vertices_to_trimesh(vvv, ttt.copy(),
+                                         red_color if sss == 1 else green_color,  
+                                         rot_axis, rot_angle, is_right=sss))
+             for vvv, ttt, sss in zip(vertices, cam_t, is_right)]
+
+        scene = pyrender.Scene(bg_color=[*scene_bg_color, 0.0],
+                               ambient_light=(0.3, 0.3, 0.3))
+        for i,mesh in enumerate(mesh_list):
+            scene.add(mesh, f'mesh_{i}')
+
+        camera_pose = np.eye(4)
+        # camera_pose[:3, 3] = camera_translation
+        camera_center = [render_res[0] / 2., render_res[1] / 2.]
+        focal_length = focal_length if focal_length is not None else self.focal_length
+        camera = pyrender.IntrinsicsCamera(fx=focal_length, fy=focal_length,
+                                           cx=camera_center[0], cy=camera_center[1], zfar=1e12)
+
+        # Create camera node and add it to pyRender scene
+        camera_node = pyrender.Node(camera=camera, matrix=camera_pose)
+        scene.add_node(camera_node)
+        self.add_point_lighting(scene, camera_node)
+        self.add_lighting(scene, camera_node)
+
+        light_nodes = create_raymond_lights()
+        for node in light_nodes:
+            scene.add_node(node)
+
+        color, rend_depth = renderer.render(scene, flags=pyrender.RenderFlags.RGBA)
+        color = color.astype(np.float32) / 255.0
+        valid_mask = (rend_depth > 0)[:,:,None]
+        color = color * valid_mask
+        renderer.delete()
+
+        return color
+
+    def render_rgba_multiple_diff_flip(
+            self,
+            vertices: List[np.array],
+            cam_t: List[np.array],
+            rot_axis=[1,0,0],
+            rot_angle=0,
+            mesh_base_color=(1.0, 1.0, 0.9),
+            scene_bg_color=(0,0,0),
+            render_res=[256, 256],
+            focal_length=None,
+            is_right=None,
+        ):
+        # 定义颜色
+        red_color = (1.0, 0.5, 0.5)  # 浅红色
+        green_color = (0.5, 1.0, 0.5)  # 浅绿色
+        renderer = pyrender.OffscreenRenderer(viewport_width=render_res[0],
+                                              viewport_height=render_res[1],
+                                              point_size=1.0)
+        # material = pyrender.MetallicRoughnessMaterial(
+        #     metallicFactor=0.0,
+        #     alphaMode='OPAQUE',
+        #     baseColorFactor=(*mesh_base_color, 1.0))
+
+        if is_right is None:
+            is_right = [1 for _ in range(len(vertices))]
+
+        # mesh_list = [pyrender.Mesh.from_trimesh(self.vertices_to_trimesh(vvv, ttt.copy(), mesh_base_color, rot_axis, rot_angle, is_right=sss)) for vvv,ttt,sss in zip(vertices, cam_t, is_right)]
+        mesh_list = [pyrender.Mesh.from_trimesh(
+                self.vertices_to_trimesh(vvv, ttt.copy(),
+                                         green_color if sss == 1 else red_color,  # 根据is_right选择颜色
+                                         rot_axis, rot_angle, is_right=sss))
+             for vvv, ttt, sss in zip(vertices, cam_t, is_right)]
+
+        scene = pyrender.Scene(bg_color=[*scene_bg_color, 0.0],
+                               ambient_light=(0.3, 0.3, 0.3))
+        for i,mesh in enumerate(mesh_list):
+            scene.add(mesh, f'mesh_{i}')
+
+        camera_pose = np.eye(4)
+        # camera_pose[:3, 3] = camera_translation
+        camera_center = [render_res[0] / 2., render_res[1] / 2.]
+        focal_length = focal_length if focal_length is not None else self.focal_length
+        camera = pyrender.IntrinsicsCamera(fx=focal_length, fy=focal_length,
+                                           cx=camera_center[0], cy=camera_center[1], zfar=1e12)
+
+        # Create camera node and add it to pyRender scene
+        camera_node = pyrender.Node(camera=camera, matrix=camera_pose)
+        scene.add_node(camera_node)
+        self.add_point_lighting(scene, camera_node)
+        self.add_lighting(scene, camera_node)
+
+        light_nodes = create_raymond_lights()
+        for node in light_nodes:
+            scene.add_node(node)
+
+        color, rend_depth = renderer.render(scene, flags=pyrender.RenderFlags.RGBA)
+        color = color.astype(np.float32) / 255.0
+        valid_mask = (rend_depth > 0)[:,:,None]
+        color = color * valid_mask
+        renderer.delete()
+
+        return color
