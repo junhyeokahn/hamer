@@ -34,7 +34,7 @@ class DWposeDetector:
 
         self.pose_estimation = Wholebody()
 
-    def __call__(self, oriImg):
+    def __call__(self, oriImg, threshold=0.3):
         oriImg = oriImg.copy()
         H, W, C = oriImg.shape
         with torch.no_grad():
@@ -52,7 +52,7 @@ class DWposeDetector:
                     else:
                         score[i][j] = -1
 
-            un_visible = subset<0.3
+            un_visible = subset<threshold
             candidate[un_visible] = -1
             return candidate
             # foot = candidate[:,18:24]
